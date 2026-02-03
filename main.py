@@ -37,6 +37,12 @@ app.add_middleware(
 # Servir frontend estático
 import os
 os.makedirs("static", exist_ok=True)
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
+def root_redirect():
+    return RedirectResponse(url="/dashboard/")
+
 app.mount("/dashboard", StaticFiles(directory="static", html=True), name="static")
 
 @app.get("/companies/search")

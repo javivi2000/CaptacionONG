@@ -350,7 +350,8 @@
     </div>
 
     <script>
-        const API_URL = "http://localhost:8001";
+        // Usar la URL actual para que funcione tanto en local como en despliegue
+        const API_URL = window.location.origin;
 
         async function search() {
             // ... (rest of search function) ...
