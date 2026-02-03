@@ -435,10 +435,12 @@
                             if (n.date) {
                                 const d = new Date(n.date);
                                 const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-                                dateStr = `${d.getDate()}-${months[d.getMonth()]}`;
+                                const day = String(d.getDate()).padStart(2, '0');
+                                const year = String(d.getFullYear()).slice(-2);
+                                dateStr = `${day}/${months[d.getMonth()]}/${year}`;
                             }
 
-                            const linkHtml = n.url ? `<a href="${n.url}" target="_blank" style="color: #004085; font-weight:700; text-decoration:none;">[${dateStr}]</a>` : `[${dateStr}]`;
+                            const linkHtml = n.url ? `<a href="${n.url}" target="_blank" style="color: #004085; font-weight:700; text-decoration: underline;">[${dateStr}]</a>` : `[${dateStr}]`;
 
                             // Tags de categoría (General y CRE)
                             let tagsHtml = '';
