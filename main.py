@@ -48,6 +48,8 @@ app.mount("/dashboard", StaticFiles(directory="static", html=True), name="static
 @app.get("/companies/search")
 def search_companies(
     municipality: Optional[str] = None, 
+    name: Optional[str] = None,
+    only_evidence: bool = False,
     limit: int = 20, 
     db: Session = Depends(get_db)
 ):
@@ -56,7 +58,20 @@ def search_companies(
     if municipality:
         query = query.filter(GVACompany.municipality.ilike(f"%{municipality}%"))
     
-    results = query.order_by(CompanyScore.score_total.desc()).limit(limit).all()
+    if name:
+        query = query.filter(GVACompany.name.ilike(f"%{name}%"))
+    
+    if only_evidence:
+        # Filtrar solo empresas que tengan noticias en la tabla CompanyNews
+        from sqlalchemy import exists
+        query = query.filter(exists().where(CompanyNews.company_id == GVACompany.id))
+    
+    query = query.order_by(CompanyScore.score_total.desc())
+    
+    if limit > 0:
+        query = query.limit(limit)
+    
+    results = query.all()
     
     output = []
     for comp, score in results:
