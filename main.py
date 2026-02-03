@@ -83,6 +83,7 @@ def search_companies(
                 "title": n.title,
                 "source": n.source,
                 "url": n.url,
+                "date": n.date.strftime("%Y-%m-%d") if n.date else None,
                 "category": n.category,         # Categoría general (Sostenibilidad, etc)
                 "impact_score": n.impact_score, # Importancia 1-5
                 "cre_category": n.cre_category, # Categoría del vínculo CRE
@@ -139,78 +140,86 @@ def health():
 
 @app.get("/companies/{company_id}/pitch")
 def generate_pitch(company_id: int, db: Session = Depends(get_db)):
-    from googlesearch import search
-    import requests
-    from bs4 import BeautifulSoup
-    
-    score_entry = db.query(CompanyScore).filter_by(company_id=company_id).first()
-    if not score_entry:
-        return {"error": "Company not found"}
-        
-    comp = score_entry.company
-    
-    # 1. Real-time Web Search (Mock-safe or Real)
-    # Buscamos 3 resultados frescos
-    search_query = f"{comp.name} responsabilidad social alicante"
-    results = []
     try:
-        # Limitamos a 3 para velocidad
-        for url in search(search_query, num_results=3, lang="es"):
-            results.append(url)
-    except Exception as e:
-        results = ["Error buscando en Google: " + str(e)]
-
-    # 2. Análisis Web Directo (si tiene web)
-    web_keywords = []
-    if comp.web:
+        from googlesearch import search
+        import requests
+        from bs4 import BeautifulSoup
+        
+        score_entry = db.query(CompanyScore).filter_by(company_id=company_id).first()
+        if not score_entry:
+            return {"error": "Company not found"}
+            
+        comp = score_entry.company
+        
+        # 1. Real-time Web Search
+        search_query = f"{comp.name} responsabilidad social alicante"
+        results = []
         try:
-            target_url = comp.web if comp.web.startswith("http") else "http://" + comp.web
-            resp = requests.get(target_url, timeout=5, verify=False)
-            if resp.status_code == 200:
-                soup = BeautifulSoup(resp.text, 'html.parser')
-                text = soup.get_text().lower()
-                for kw in ["sostenibilidad", "igualdad", "fundación", "donación", "medio ambiente", "cruz roja", "solidaridad"]:
-                    if kw in text:
-                        web_keywords.append(kw)
+            google_results = search(search_query, num_results=3, lang="es")
+            for url in google_results:
+                results.append(url)
         except:
-            pass # Fail silently for speed
+            results = ["Error buscando en Google"]
 
-    # 3. Construcción del Generador de Argumentario
-    
-    # Saludo y Contexto
-    pitch = f"Hola, buenos días. Soy voluntario de Cruz Roja en {comp.municipality or 'Alicante'}. "
-    pitch += f"Os contactamos porque hemos visto que sois un referente en el sector de {comp.category or comp.modality or 'vuestra actividad'}."
-    
-    # Argumento "Gancho" (Tier Social)
-    if score_entry.score_total >= 3.0:
-        pitch += " Llevamos un tiempo siguiendo vuestra trayectoria y vemos que compartimos valores muy fuertes. "
-    elif score_entry.score_total >= 2.0:
-        pitch += " Estamos buscando aliados estratégicos en la zona y vuestro perfil encaja perfectamente. "
-    
-    # Argumento Específico (Evidence)
-    pitch += "\n\n**Argumento Personalizado:**\n"
-    if web_keywords:
-        pitch += f"- HE VISTO EN VUESTRA WEB menciones a: {', '.join(web_keywords).upper()}. En Cruz Roja tenemos proyectos justo en esas áreas.\n"
-    
-    # Argumento Search (Real-time)
-    if len(results) > 0 and "Error" not in results[0]:
-         pitch += f"- HE LEÍDO NOTICIAS sobre vosotros, por ejemplo en: {results[0]}. Nos encantaría colaborar en iniciativas así.\n"
-    elif score_entry.news_evidence and len(score_entry.news_evidence) > 5:
-        # Fallback to stored evidence
-        evidence = json.loads(score_entry.news_evidence)
-        if evidence:
-             pitch += f"- HE LEÍDO SOBRE: {evidence[0]['title']}.\n"
+        # 2. Análisis Web Directo
+        web_keywords = []
+        if comp.web:
+            try:
+                target_url = comp.web if comp.web.startswith("http") else "http://" + comp.web
+                resp = requests.get(target_url, timeout=5, verify=False)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    text = soup.get_text().lower()
+                    for kw in ["sostenibilidad", "igualdad", "fundación", "donación", "medio ambiente", "cruz roja", "solidaridad"]:
+                        if kw in text:
+                            web_keywords.append(kw)
+            except:
+                pass
 
-    # Cierre de Venta
-    pitch += "\n\n**Cierre:**\n"
-    pitch += "¿Os interesaría tomar un café de 10 minutos para explicaros cómo vuestra RSC puede tener impacto directo aquí en Alicante?"
+        # 3. Construcción del Generador de Argumentario
+        breakdown = {}
+        try:
+            if score_entry.news_evidence:
+                breakdown = json.loads(score_entry.news_evidence)
+        except:
+             pass
 
-    return {
-        "company_name": comp.name,
-        "pitch": pitch,
-        "real_time_results": results,
-        "web_detected_keywords": web_keywords
-    }
+        pitch = f"Hola, buenos días. Soy voluntario de Cruz Roja en {comp.municipality or 'Alicante'}. "
+        pitch += f"Os contactamos porque hemos visto que sois un referente en el sector de {comp.category or comp.modality or 'vuestra actividad'}."
+        
+        if score_entry.score_total >= 3.0:
+            pitch += " Llevamos un tiempo siguiendo vuestra trayectoria y vemos que compartimos valores muy fuertes. "
+        elif score_entry.score_total >= 2.0:
+            pitch += " Estamos buscando aliados estratégicos en la zona y vuestro perfil encaja perfectamente. "
+        
+        pitch += "\n\n**Argumento Personalizado:**\n"
+        
+        if web_keywords:
+            keywords_str = ", ".join(web_keywords).upper()
+            pitch += f"- HE VISTO EN VUESTRA WEB que dais importancia a conceptos como: {keywords_str}. En Cruz Roja tenemos proyectos de impacto directo justo en esas áreas y nos encantaría sumar esfuerzos.\n"
+        
+        if isinstance(breakdown, dict):
+            if breakdown.get("cre_bonus", 0) > 0:
+                pitch += f"- VALORAMOS MUCHO vuestra relación histórica con nosotros. Sois un colaborador con un vínculo ya consolidado y nos gustaría llevarlo al siguiente nivel.\n"
+            if breakdown.get("news", 0) > 0:
+                pitch += f"- HEMOS VISTO vuestra reciente actividad social en prensa. Es inspirador ver vuestro compromiso activo con el entorno.\n"
+        
+        if len(results) > 0 and "Error" not in results[0]:
+             pitch += f"- HE LEÍDO NOTICIAS sobre vuestra implicación local, por ejemplo en: {results[0]}. Creemos que podemos potenciar juntos esa visibilidad.\n"
+        elif isinstance(breakdown, list) and len(breakdown) > 0:
+             pitch += f"- HE LEÍDO SOBRE: {breakdown[0]['title']}.\n"
+
+        pitch += "\n\n**Cierre:**\n"
+        pitch += "¿Os interesaría tomar un café de 10 minutos para explicaros cómo vuestra RSC puede tener impacto real aquí en nuestra zona?"
+
+        return {
+            "company_name": comp.name,
+            "pitch": pitch,
+            "real_time_results": results,
+            "web_detected_keywords": web_keywords
+        }
+    except Exception as e:
+        return {"error": "Error interno al generar el argumentario."}
 
 if __name__ == "__main__":
     import uvicorn

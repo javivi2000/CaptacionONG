@@ -92,6 +92,7 @@ def calculate_scores():
         # --- 3. Pilar de Actualidad (Tier 3) ---
         # Consultamos el impacto acumulado en las últimas semanas
         news_impact = session.query(ImpactWeekly).filter_by(company_id=comp.id).all()
+        actualidad_points = 0.0
         if news_impact:
             total_news_points = sum(n.score_total for n in news_impact)
             # Capamos el impacto de noticias a un máximo de 2 puntos (10-20% del total)
@@ -103,12 +104,14 @@ def calculate_scores():
         # --- 4. Cálculo de Vínculo CRE (0-10) ---
         cre_news = session.query(CompanyNews).filter_by(company_id=comp.id).all()
         avg_cre_link = 0.0
+        cre_bonus = 0.0
         if cre_news:
             avg_cre_link = sum(n.cre_score for n in cre_news) / len(cre_news)
             # Bonus adicional al score total si tiene buen vínculo (>5)
             if avg_cre_link > 5:
-                score_social += 1.0
-                tags.append(f"Vínculo CRE Notable (+1.0): Nota media {round(avg_cre_link, 1)}/10.")
+                cre_bonus = 2.0
+                score_social += cre_bonus
+                tags.append(f"Vínculo CRE Notable (+2.0): Nota media {round(avg_cre_link, 1)}/10.")
 
         # Cálculo Final
         final_score = score_social + score_territorial
@@ -119,16 +122,28 @@ def calculate_scores():
             score_entry = CompanyScore(company_id=comp.id)
             session.add(score_entry)
         
+        # Guardamos un JSON estructurado con el desglose real para la API
+        breakdown_json = {
+            "sector": score_social - (actualidad_points + cre_bonus + (1.0 if d_financial else 0.0)),
+            "territory": score_territorial,
+            "financial": 1.0 if d_financial else 0.0,
+            "news": round(actualidad_points, 2),
+            "cre_bonus": cre_bonus
+        }
+        
         score_entry.score_cre_link = round(avg_cre_link, 2)
         score_entry.score_social = score_social
         score_entry.score_territorial = score_territorial
         score_entry.score_total = round(final_score, 2)
         score_entry.tags_explainer = json.dumps(tags)
         
-        # Guardar Desgloses
+        # Guardar Desgloses Textuales (Compatibilidad)
         score_entry.breakdown_sector = d_sector
         score_entry.breakdown_territory = d_territory
         score_entry.breakdown_financial = d_financial
+        
+        # Usamos news_evidence para guardar el desglose numérico interno si no queremos cambiar el modelo
+        score_entry.news_evidence = json.dumps(breakdown_json)
         
         score_entry.updated_at = datetime.datetime.now(datetime.timezone.utc)
         

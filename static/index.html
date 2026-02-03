@@ -503,8 +503,21 @@
             result.style.display = "none";
 
             try {
-                const res = await fetch(`${API_URL} /companies/${id}/pitch`);
+                console.log("Generando pitch para ID:", id);
+                const res = await fetch(`${API_URL}/companies/${id}/pitch`);
+
+                if (!res.ok) {
+                    const errorBody = await res.text();
+                    console.error("Error del servidor (Status " + res.status + "):", errorBody);
+                    throw new Error(`Servidor devolvió error ${res.status}: ${errorBody.substring(0, 100)}...`);
+                }
+
                 const data = await res.json();
+
+                if (data.error) {
+                    console.error("Error lógico del servidor:", data.error, data.traceback);
+                    throw new Error(data.error);
+                }
 
                 loading.style.display = "none";
                 result.style.display = "block";
@@ -528,7 +541,12 @@
                     data.web_detected_keywords.join(", ") : "No se detectaron términos específicos en la home.";
 
             } catch (e) {
-                loading.innerHTML = "<p style='color:red'>Error generando el pitch.</p>";
+                console.error("Error completo en la petición:", e);
+                loading.innerHTML = `
+                    <p style='color:red; font-weight:bold;'>Error generando el pitch.</p>
+                    <p style='font-size:0.8em; color:#666;'>Detalle: ${e.message}</p>
+                    <p style='font-size:0.7em; color:#999; margin-top:10px;'>Consulta la consola (F12) o los logs del servidor para más detalles.</p>
+                `;
             }
         }
 

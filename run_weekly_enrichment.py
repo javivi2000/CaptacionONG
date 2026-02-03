@@ -35,12 +35,15 @@ def run_enrichment(limit=20):
     print("\n--- Sistema de Enriquecimiento de Noticias (Cruz Roja) ---")
     
     muni_filter = input("Municipio para buscar (EJ: Monovar, Alicante, Elche...): ").strip()
-    if not muni_filter:
-        print("[AVISO] No has introducido municipio. Se usará 'Alicante' por defecto.")
+    name_filter = input("Nombre de empresa específico (opcional): ").strip()
+
+    if not muni_filter and not name_filter:
+        print("[AVISO] No has introducido filtros. Se usará 'Alicante' por defecto.")
         muni_filter = "Alicante"
 
     try:
-        limit_input = input(f"¿Cuántas empresas del Top de '{muni_filter}' procesar? (Defecto {limit}): ").strip()
+        limit_msg = f"¿Cuántas empresas procesar? (Usa -1 para TODAS, defecto {limit}): "
+        limit_input = input(limit_msg).strip()
         if limit_input:
             limit = int(limit_input)
     except:
@@ -59,23 +62,37 @@ def run_enrichment(limit=20):
     elif choice == '3':
         period_days = 180
     
-    logger.info(f"Configuración: Localidad='{muni_filter}', Top={limit}, Periodo={period_days} días")
+    limit_str = "TODAS" if limit == -1 else str(limit)
+    logger.info(f"Configuración: Municipio='{muni_filter}', Nombre='{name_filter}', Límite={limit_str}, Periodo={period_days} días")
 
     # 3. Inicializar componentes
     collector = NewsCollector()
     classifier = NewsClassifier()
 
     # 4. Obtener empresas
-    # Filtramos estrictamente por el municipio introducido
-    query = session.query(GVACompany).join(CompanyScore).filter(GVACompany.municipality.ilike(f"%{muni_filter}%"))
+    # Usamos outerjoin para incluir empresas que aún no tienen registro en CompanyScore (recién sincronizadas)
+    query = session.query(GVACompany).outerjoin(CompanyScore)
     
-    top_companies = query.order_by(CompanyScore.score_total.desc()).limit(limit).all()
+    if muni_filter:
+        query = query.filter(GVACompany.municipality.ilike(f"%{muni_filter}%"))
+    
+    if name_filter:
+        query = query.filter(GVACompany.name.ilike(f"%{name_filter}%"))
+    
+    # Si hay CompanyScore, ordenamos por él. Si no, las nuevas van al final o según ID.
+    from sqlalchemy import desc
+    query = query.order_by(desc(CompanyScore.score_total == None), CompanyScore.score_total.desc())
+    
+    if limit > 0:
+        query = query.limit(limit)
+    
+    top_companies = query.all()
     
     if not top_companies:
-        logger.warning(f"No se han encontrado empresas en '{muni_filter}'. ¿Está bien escrito?")
+        logger.warning(f"No se han encontrado empresas con los filtros aplicados.")
         return
 
-    logger.info(f"Procesando {len(top_companies)} empresas en {muni_filter}.")
+    logger.info(f"Procesando {len(top_companies)} empresas.")
 
     new_news_count = 0
     for company in top_companies:
