@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+httpx
+beautifulsoup4
+sqlalchemy
+pyyaml
+pandas
+openpyxl
+feedparser
+newspaper3k
+lxml_html_clean
+googlesearch-python
+requests
+tabulate

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cruz Roja - Buscador de Aliados</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cr-red: #cc0000;
+            --cr-dark: #333;
+            --cr-grey: #f4f4f4;
+            --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+            color: var(--cr-dark);
+        }
+
+        header {
+            background-color: white;
+            border-bottom: 4px solid var(--cr-red);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        header h1 {
+            margin: 0;
+            color: var(--cr-red);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: end;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        label {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        input,
+        select {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: var(--cr-red);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 4px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #a00;
+        }
+
+        /* Grid de Resultados */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            border-left: 5px solid transparent;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Dynamic border color based on score */
+        .card.tier-gold {
+            border-left-color: #ffd700;
+        }
+
+        .card.tier-silver {
+            border-left-color: #c0c0c0;
+        }
+
+        .card.tier-bronze {
+            border-left-color: #cd7f32;
+        }
+
+        .card.tier-normal {
+            border-left-color: #ddd;
+        }
+
+        .card-header {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+        }
+
+        .company-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .company-meta {
+            font-size: 0.85rem;
+            color: #777;
+            margin-top: 0.25rem;
+        }
+
+        .score-badge {
+            background: var(--cr-dark);
+            color: white;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .cre-badge {
+            background: #f82f2f;
+            color: white;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-top: 5px;
+            display: inline-block;
+            box-shadow: 0 2px 4px rgba(248, 47, 47, 0.2);
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .breakdown-section {
+            margin-bottom: 1rem;
+        }
+
+        .breakdown-item {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .breakdown-icon {
+            color: var(--cr-red);
+        }
+
+        .breakdown-text {
+            color: #555;
+        }
+
+        .evidence-box {
+            background-color: #f0f7ff;
+            border: 1px solid #cce5ff;
+            color: #004085;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .evidence-title {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+
+        .contact-footer {
+            background-color: #f9f9f9;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            color: #666;
+            display: flex;
+            gap: 1rem;
+            border-top: 1px solid #eee;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 2rem;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        .btn-pitch {
+            display: block;
+            width: 100%;
+            margin-top: 1rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-pitch:hover {
+            background-color: #0056b3;
+        }
+
+        .pitch-box {
+            background: #fdfdfd;
+            border: 1px solid #e0e0e0;
+            padding: 1.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Responsabilidad Social - Cruz Roja Alicante</h1>
+        <div>
+            <span>v2.0 (Evidencias)</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="filters">
+            <div class="form-group">
+                <label for="municipality">Municipio (ej. Monovar, Alicante...)</label>
+                <input type="text" id="municipality" placeholder="Escribe un municipio (opcional)">
+            </div>
+            <div class="form-group">
+                <label for="limit">Resultados (Top X)</label>
+                <select id="limit">
+                    <option value="10">Top 10</option>
+                    <option value="20">Top 20</option>
+                    <option value="50">Top 50</option>
+                    <option value="100">Top 100</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 0;">
+                <label>&nbsp;</label>
+                <button onclick="search()">Buscar Aliados</button>
+            </div>
+        </div>
+
+        <div id="results-count" style="margin-bottom: 1rem; color: #666; font-weight: 500;"></div>
+        <div class="results-grid" id="grid">
+            <!-- Cards go here -->
+        </div>
+    </main>
+
+
+    <!-- Modal Pitch -->
+    <div id="pitchModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>🎯 Preparación de Visita Cruz Roja</h2>
+            <div id="pitchLoading">
+                <p>🕵️‍♂️ Analizando web de la empresa y noticias en tiempo real... (esto puede tardar unos segundos)
+                </p>
+            </div>
+            <div id="pitchResult" style="display:none">
+                <h3>Argumentario Generado:</h3>
+                <div class="pitch-box" id="pitchText"></div>
+
+                <h4>🔍 Hallazgos en Tiempo Real (Google):</h4>
+                <ul id="realTimeLinks"></ul>
+
+                <h4>🌐 Palabras Clave en su Web:</h4>
+                <p id="webKeywords"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8001";
+
+        async function search() {
+            // ... (rest of search function) ...
+            const muni = document.getElementById('municipality').value;
+            const limit = document.getElementById('limit').value;
+            const grid = document.getElementById('grid');
+            const countDiv = document.getElementById('results-count');
+
+            grid.innerHTML = '<p>Buscando empresas...</p>';
+            countDiv.innerText = '';
+
+            try {
+                let url = `${API_URL}/companies/search?limit=${limit}`;
+                if (muni) url += `&municipality=${muni}`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                countDiv.innerText = `Encontrados ${data.length} posibles aliados`;
+                grid.innerHTML = '';
+
+                data.forEach(company => {
+                    const card = document.createElement('div');
+
+                    // Determine Tier color
+                    let tier = 'tier-normal';
+                    if (company.score_total >= 3.0) tier = 'tier-gold';
+                    else if (company.score_total >= 2.0) tier = 'tier-silver';
+                    else if (company.score_total >= 1.0) tier = 'tier-bronze';
+
+                    card.className = `card ${tier}`;
+
+                    // Build Breakdown HTML
+                    let breakdownHtml = '';
+                    if (company.breakdown.sector)
+                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">🏢</span> <span class="breakdown-text">${company.breakdown.sector}</span></div>`;
+                    if (company.breakdown.territory)
+                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📍</span> <span class="breakdown-text">${company.breakdown.territory}</span></div>`;
+                    if (company.breakdown.financial)
+                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">💶</span> <span class="breakdown-text">${company.breakdown.financial}</span></div>`;
+
+                    // Build News Evidence HTML
+                    let newsHtml = '';
+                    if (company.evidence && company.evidence.news && company.evidence.news.length > 0) {
+                        newsHtml = '<div class="evidence-box"><span class="evidence-title">📰 Evidencia en Prensa:</span>';
+                        company.evidence.news.forEach(n => {
+                            // Formatear fecha dd-mmm (ej: 15-mar)
+                            let dateStr = "S/D";
+                            if (n.date) {
+                                const d = new Date(n.date);
+                                const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+                                dateStr = `${d.getDate()}-${months[d.getMonth()]}`;
+                            }
+
+                            const linkHtml = n.url ? `<a href="${n.url}" target="_blank" style="color: #004085; font-weight:700;">[${dateStr}]</a>` : `[${dateStr}]`;
+                            const creTag = n.cre_category ? `<span style="background:#fff3f3; color:#d32f2f; padding:1px 4px; border-radius:4px; font-size:0.75em; margin-right:4px; border: 1px solid #ffcdd2;">${n.cre_category}</span>` : '';
+                            newsHtml += `<div style="margin-bottom:0.3rem">${linkHtml} ${creTag}"${n.title}" <em style="font-size:0.8em">(${n.source})</em></div>`;
+                        });
+                        newsHtml += '</div>';
+                    }
+
+                    card.innerHTML = `
+                    <div class="card-header">
+                        <div>
+                            <h3 class="company-name">${company.name}</h3>
+                            <div class="company-meta">${company.municipality} | ${company.category}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="score-badge">${company.score_total}</div>
+                            ${company.score_cre > 0 ? `<div class="cre-badge" title="Vínculo Social con Cruz Roja">❤️ ${company.score_cre}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="breakdown-section">
+                            <strong>Argumento Social:</strong>
+                            <div style="margin-top:0.5rem">
+                                ${breakdownHtml || '<span style="color:#999">Sin argumentos específicos.</span>'}
+                            </div>
+                        </div>
+                        ${newsHtml}
+                        <button class="btn-pitch" onclick="openPitchModal(${company.id})">💡 Preparar Visita (IA)</button>
+                    </div>
+                    <div class="contact-footer">
+                        <span>📧 ${company.contact.email || 'N/A'}</span>
+                        <span>📞 ${company.contact.phone || 'N/A'}</span>
+                    </div>
+                `;
+                    grid.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error(error);
+                grid.innerHTML = '<p style="color:red">Error al conectar con la API.</p>';
+            }
+        }
+
+        // Modal Logic
+        async function openPitchModal(id) {
+            const modal = document.getElementById('pitchModal');
+            const loading = document.getElementById('pitchLoading');
+            const result = document.getElementById('pitchResult');
+
+            modal.style.display = "block";
+            loading.style.display = "block";
+            result.style.display = "none";
+
+            try {
+                const res = await fetch(`${API_URL} /companies/${id}/pitch`);
+                const data = await res.json();
+
+                loading.style.display = "none";
+                result.style.display = "block";
+
+                // Format Text
+                document.getElementById('pitchText').innerText = data.pitch;
+
+                // Links
+                const linksUl = document.getElementById('realTimeLinks');
+                linksUl.innerHTML = "";
+                if (data.real_time_results && data.real_time_results.length > 0) {
+                    data.real_time_results.forEach(link => {
+                        linksUl.innerHTML += `<li><a href="${link}" target="_blank">${link}</a></li>`;
+                    });
+                } else {
+                    linksUl.innerHTML = "<li>Sin resultados recientes en Google News.</li>";
+                }
+
+                // Keywords
+                document.getElementById('webKeywords').innerText = data.web_detected_keywords.length > 0 ?
+                    data.web_detected_keywords.join(", ") : "No se detectaron términos específicos en la home.";
+
+            } catch (e) {
+                loading.innerHTML = "<p style='color:red'>Error generando el pitch.</p>";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('pitchModal').style.display = "none";
+        }
+
+        window.onclick = function (event) {
+            if (event.target == document.getElementById('pitchModal')) {
+                closeModal();
+            }
+        }
+    </script>
+
+</body>
+
+</html>
