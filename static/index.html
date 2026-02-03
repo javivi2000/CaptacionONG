@@ -386,19 +386,36 @@
 
                     // Build Breakdown HTML
                     let breakdownHtml = '';
-                    if (company.breakdown.sector)
-                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">🏢</span> <span class="breakdown-text">${company.breakdown.sector}</span></div>`;
-                    if (company.breakdown.territory)
-                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📍</span> <span class="breakdown-text">${company.breakdown.territory}</span></div>`;
-                    if (company.breakdown.financial)
-                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">💶</span> <span class="breakdown-text">${company.breakdown.financial}</span></div>`;
+
+                    // 1. Sector
+                    const sectorPoints = company.breakdown.num_sector !== undefined ? company.breakdown.num_sector : 0;
+                    breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">🏢</span> <span class="breakdown-text">Sector: +${sectorPoints}</span></div>`;
+
+                    // 2. Territorio
+                    const territoryPoints = company.breakdown.num_territory !== undefined ? company.breakdown.num_territory : 0;
+                    if (territoryPoints > 0)
+                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📍</span> <span class="breakdown-text">Territorio: +${territoryPoints}</span></div>`;
+
+                    // 3. Capacidad Financiera
+                    const financialPoints = company.breakdown.num_financial !== undefined ? company.breakdown.num_financial : 0;
+                    if (financialPoints > 0)
+                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">💶</span> <span class="breakdown-text">Capacidad Económica: +${financialPoints}</span></div>`;
+
+                    // 4. Actualidad Social
+                    const newsPoints = company.breakdown.news || 0;
+                    if (newsPoints > 0)
+                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📰</span> <span class="breakdown-text">Actualidad Social: +${newsPoints}</span></div>`;
+
+                    // 5. Vínculo CRE
+                    const creBonus = company.breakdown.cre_bonus || 0;
+                    if (creBonus > 0)
+                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">❤️</span> <span class="breakdown-text">Vínculo Histórico: +${creBonus}</span></div>`;
 
                     // Build News Evidence HTML
                     let newsHtml = '';
                     if (company.evidence && company.evidence.news && company.evidence.news.length > 0) {
-                        newsHtml = '<div class="evidence-box"><span class="evidence-title">📰 Evidencia en Prensa:</span>';
+                        newsHtml = '<div class="evidence-box"><span class="evidence-title">📰 Evidencias de Impacto:</span>';
                         company.evidence.news.forEach(n => {
-                            // Formatear fecha dd-mmm (ej: 15-mar)
                             let dateStr = "S/D";
                             if (n.date) {
                                 const d = new Date(n.date);
@@ -406,9 +423,19 @@
                                 dateStr = `${d.getDate()}-${months[d.getMonth()]}`;
                             }
 
-                            const linkHtml = n.url ? `<a href="${n.url}" target="_blank" style="color: #004085; font-weight:700;">[${dateStr}]</a>` : `[${dateStr}]`;
-                            const creTag = n.cre_category ? `<span style="background:#fff3f3; color:#d32f2f; padding:1px 4px; border-radius:4px; font-size:0.75em; margin-right:4px; border: 1px solid #ffcdd2;">${n.cre_category}</span>` : '';
-                            newsHtml += `<div style="margin-bottom:0.3rem">${linkHtml} ${creTag}"${n.title}" <em style="font-size:0.8em">(${n.source})</em></div>`;
+                            const linkHtml = n.url ? `<a href="${n.url}" target="_blank" style="color: #004085; font-weight:700; text-decoration:none;">[${dateStr}]</a>` : `[${dateStr}]`;
+
+                            // Tags de categoría (General y CRE)
+                            let tagsHtml = '';
+                            if (n.category) tagsHtml += `<span style="background:#e3f2fd; color:#1565c0; padding:1px 4px; border-radius:4px; font-size:0.75em; margin-right:4px; border: 1px solid #bbdefb;">${n.category}</span>`;
+                            if (n.cre_category) tagsHtml += `<span style="background:#fff3f3; color:#d32f2f; padding:1px 4px; border-radius:4px; font-size:0.75em; margin-right:4px; border: 1px solid #ffcdd2;">${n.cre_category}</span>`;
+
+                            // Valoración (CRE o Impacto)
+                            let scoreHtml = '';
+                            if (n.cre_score > 0) scoreHtml = `<b style="color:var(--cr-red); font-size:0.85em; margin-left:5px;">(${n.cre_score}/10)</b>`;
+                            else if (n.impact_score) scoreHtml = `<b style="color:#666; font-size:0.8em; margin-left:5px;">[Impacto: ${n.impact_score}]</b>`;
+
+                            newsHtml += `<div style="margin-bottom:0.4rem; line-height:1.2;">${linkHtml} ${tagsHtml}"${n.title}" ${scoreHtml} <em style="font-size:0.85em; color:#666;">(${n.source})</em></div>`;
                         });
                         newsHtml += '</div>';
                     }

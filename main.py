@@ -68,14 +68,20 @@ def search_companies(
                 "title": n.title,
                 "source": n.source,
                 "url": n.url,
-                "date": n.date.strftime("%Y-%m-%d") if n.date else None,
-                "cre_category": n.cre_category, # Categoría del vínculo
-                "cre_score": n.cre_score      # Nota 0-10 de la noticia
+                "category": n.category,         # Categoría general (Sostenibilidad, etc)
+                "impact_score": n.impact_score, # Importancia 1-5
+                "cre_category": n.cre_category, # Categoría del vínculo CRE
+                "cre_score": n.cre_score        # Nota 0-10 de la noticia CRE
             })
             
-        # Fallback si no hay noticias en la tabla pero sí en el score antiguo
-        if not news_list and score.news_evidence:
-            news_list = json.loads(score.news_evidence)
+        # Intentar obtener el desglose numérico estructurado
+        try:
+            full_breakdown = json.loads(score.news_evidence)
+            # Verificar que sea nuestro nuevo formato de desglose y no el fallback de noticias legacy
+            if not isinstance(full_breakdown, dict) or "sector" not in full_breakdown:
+                full_breakdown = None
+        except:
+            full_breakdown = None
 
         output.append({
             "id": comp.id,
@@ -92,7 +98,13 @@ def search_companies(
             "breakdown": {
                 "sector": score.breakdown_sector,
                 "territory": score.breakdown_territory,
-                "financial": score.breakdown_financial
+                "financial": score.breakdown_financial,
+                "news": full_breakdown["news"] if full_breakdown else 0.0,
+                "cre_bonus": full_breakdown["cre_bonus"] if full_breakdown else 0.0,
+                # Enviamos también los valores numéricos para facilitar el renderizado
+                "num_sector": full_breakdown["sector"] if full_breakdown else 0.0,
+                "num_territory": full_breakdown["territory"] if full_breakdown else 0.0,
+                "num_financial": full_breakdown["financial"] if full_breakdown else 0.0
             },
             "evidence": {
                 "news": news_list
