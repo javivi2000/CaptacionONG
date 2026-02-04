@@ -8,16 +8,22 @@ from news_classifier import NewsClassifier
 from datetime import datetime
 from scoring import calculate_scores
 import sys
+import argparse
 
-# Configuración de logs
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Configuración de logs unificada a STDOUT para captura web
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(message)s', # Formato más limpio para la consola web
+    stream=sys.stdout,
+    force=True
+)
 logger = logging.getLogger("batch_enrichment")
 
 def get_year_week(date_obj):
     """Devuelve el formato YYYY-WW para la base de datos"""
     return date_obj.strftime("%Y-W%W")
 
-def run_enrichment(limit=20):
+def run_enrichment(limit=20, municipality=None, name=None):
     # 1. Cargar configuración y conectar a BBDD
     try:
         with open("config.yaml", "r") as f:
@@ -31,39 +37,20 @@ def run_enrichment(limit=20):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    # 2. Solicitar parámetros al usuario (interactivo)
-    print("\n--- Sistema de Enriquecimiento de Noticias (Cruz Roja) ---")
-    
-    muni_filter = input("Municipio para buscar (EJ: Monovar, Alicante, Elche...): ").strip()
-    name_filter = input("Nombre de empresa específico (opcional): ").strip()
-
-    if not muni_filter and not name_filter:
-        print("[AVISO] No has introducido filtros. Se usará 'Alicante' por defecto.")
-        muni_filter = "Alicante"
-
-    try:
-        limit_msg = f"¿Cuántas empresas procesar? (Usa -1 para TODAS, defecto {limit}): "
-        limit_input = input(limit_msg).strip()
-        if limit_input:
-            limit = int(limit_input)
-    except:
-        pass
-
-    print("\nSeleccione el periodo de búsqueda histórica:")
-    print("1. Semanal (7 días)")
-    print("2. Mensual (30 días)")
-    print("3. Semestral (180 días) - Recomendado para carga inicial")
-    
-    choice = input("Opción (1/2/3): ").strip()
-    
+    # 2. Parámetros (Interactivo o Argumentos)
+    muni_filter = municipality
+    name_filter = name
     period_days = 7
-    if choice == '2':
-        period_days = 30
-    elif choice == '3':
-        period_days = 180
-    
+
+    # Si NO vienen por parámetro, NO usamos input() para evitar bloqueos en la web
+    if muni_filter is None and name_filter is None:
+        logger.info("Iniciando modo automático sin filtros (se procesarán todas las empresas según límite)")
+        # Podríamos poner un municipio por defecto si quisiéramos, pero el usuario pide "todas"
+    else:
+        logger.info(f"Filtros aplicados: Municipio='{muni_filter}', Nombre='{name_filter}'")
+
     limit_str = "TODAS" if limit == -1 else str(limit)
-    logger.info(f"Configuración: Municipio='{muni_filter}', Nombre='{name_filter}', Límite={limit_str}, Periodo={period_days} días")
+    logger.info(f"Configuración: Límite={limit_str}, Periodo={period_days} días")
 
     # 3. Inicializar componentes
     collector = NewsCollector()
@@ -95,7 +82,13 @@ def run_enrichment(limit=20):
     logger.info(f"Procesando {len(top_companies)} empresas.")
 
     new_news_count = 0
-    for company in top_companies:
+    total_to_process = len(top_companies)
+    
+    for index, company in enumerate(top_companies):
+        # Emitir progreso para el orquestador
+        print(f"[PROGRESS] {index+1}/{total_to_process}")
+        sys.stdout.flush()
+        
         logger.info(f">>> Analizando: {company.name} ({company.municipality})")
         
         # Buscar noticias
@@ -168,9 +161,11 @@ def run_enrichment(limit=20):
     print("[ÉXITO] Ranking actualizado con el nuevo impacto de noticias.")
 
 if __name__ == "__main__":
-    # Podemos pasar el límite por argumento o usar 20 por defecto
-    limit = 20
-    if len(sys.argv) > 1:
-        limit = int(sys.argv[1])
+    parser = argparse.ArgumentParser(description="Enriquecimiento de Noticias")
+    parser.add_argument("--limit", type=int, default=20)
+    parser.add_argument("--municipality", type=str, default=None)
+    parser.add_argument("--name", type=str, default=None)
     
-    run_enrichment(limit)
+    args = parser.parse_args()
+    
+    run_enrichment(limit=args.limit, municipality=args.municipality, name=args.name)

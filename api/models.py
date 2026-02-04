@@ -61,6 +61,7 @@ class CompanyScore(Base):
     breakdown_territory = Column(Text) # Justificación Territorial
     breakdown_financial = Column(Text) # Justificación Económica
     news_evidence = Column(Text) # JSON con titulares de noticias/RSC
+    web_keywords = Column(Text)  # Nuevo: JSON con términos de RSE detectados en su web
     
     # Nuevo: Vínculo Social CRE
     score_cre_link = Column(Float, default=0.0) # Nota promedio 0-10

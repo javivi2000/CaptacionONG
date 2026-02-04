@@ -32,6 +32,7 @@ def main_menu():
         print("3. [WEB] Arrancar Servidor API y Dashboard (main.py)")
         print("4. [DATOS] Consultar estado de la base de datos (check_db.py)")
         print("5. [DATOS] Exportar resultados a JSON/CSV (export.py)")
+        print("6. [AGENTS] Arrancar Célula de Desarrollo Agente (router.py)")
         print("\n0. Salir")
         
         opcion = input("\nSeleccione una opción: ").strip()
@@ -57,6 +58,17 @@ def main_menu():
         elif opcion == '5':
             print("\nIniciando proceso de exportación...")
             run_script("export.py")
+
+        elif opcion == '6':
+            print("\nIniciando Célula de Desarrollo Agente en el puerto 8001...")
+            # Usamos uvicorn para arrancar el orquestador
+            try:
+                import uvicorn
+                uvicorn.run("agents.router:app", host="0.0.0.0", port=8001, reload=True)
+            except ImportError:
+                print("[ERROR] uvicorn no está instalado. Instálalo con 'pip install uvicorn'")
+                input("\nPresiona Enter para volver...")
+
             
         elif opcion == '0':
             print("\nSaliendo del sistema. ¡Buen día!")

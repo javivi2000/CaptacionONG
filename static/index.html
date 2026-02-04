@@ -232,7 +232,6 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgb(0, 0, 0);
             background-color: rgba(0, 0, 0, 0.6);
         }
 
@@ -287,6 +286,82 @@
             margin-bottom: 1.5rem;
             line-height: 1.5;
         }
+
+        /* Centro de Operaciones Styles */
+        .admin-console {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            margin-top: 5px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.4;
+        }
+
+        .admin-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn-admin {
+            background-color: #444;
+            color: white;
+            padding: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.2s;
+        }
+
+        .btn-admin:hover {
+            border-color: #666;
+            background-color: #555;
+        }
+
+        .btn-admin.running {
+            background-color: #c00;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .admin-badge {
+            background: #e0e0e0;
+            color: #333;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .admin-badge:hover {
+            background: #ccc;
+        }
     </style>
 </head>
 
@@ -294,8 +369,9 @@
 
     <header>
         <h1>Responsabilidad Social - Cruz Roja Alicante</h1>
-        <div>
-            <span>v2.0 (Evidencias)</span>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="admin-badge" onclick="openAdminModal()">⚙️ Centro de Control</div>
+            <span>v2.1 (Panel Web)</span>
         </div>
     </header>
 
@@ -333,11 +409,8 @@
         </div>
 
         <div id="results-count" style="margin-bottom: 1rem; color: #666; font-weight: 500;"></div>
-        <div class="results-grid" id="grid">
-            <!-- Cards go here -->
-        </div>
+        <div class="results-grid" id="grid"></div>
     </main>
-
 
     <!-- Modal Pitch -->
     <div id="pitchModal" class="modal">
@@ -351,19 +424,153 @@
             <div id="pitchResult" style="display:none">
                 <h3>Argumentario Generado:</h3>
                 <div class="pitch-box" id="pitchText"></div>
-
                 <h4>🔍 Hallazgos en Tiempo Real (Google):</h4>
                 <ul id="realTimeLinks"></ul>
-
                 <h4>🌐 Palabras Clave en su Web:</h4>
                 <p id="webKeywords"></p>
             </div>
         </div>
     </div>
 
+    <!-- Modal Admin / Centro de Operaciones -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <span class="close" onclick="closeAdminModal()">&times;</span>
+            <h2>🚀 Centro de Operaciones</h2>
+            <p style="color: #666;">Gestiona los procesos de datos y sincronización de forma remota.</p>
+            <div class="admin-controls">
+                <button id="btn-sync" class="btn-admin" onclick="runAdminTask('sync')">
+                    <span style="font-size: 1.5rem;">🔄</span>
+                    <strong>Sincronizar GVA</strong>
+                    <span style="font-size: 0.75rem;">(sync_gva.py)</span>
+                </button>
+                <button id="btn-enrich" class="btn-admin" onclick="runAdminTask('enrich')">
+                    <span style="font-size: 1.5rem;">📰</span>
+                    <strong>Enriquecer Noticias</strong>
+                    <span style="font-size: 0.75rem;">(enrichment.py)</span>
+                </button>
+                <button id="btn-export" class="btn-admin" onclick="runAdminTask('export')">
+                    <span style="font-size: 1.5rem;">📤</span>
+                    <strong>Exportar Datos</strong>
+                    <span style="font-size: 0.75rem;">(export.py)</span>
+                </button>
+                <button id="btn-analyze_webs" class="btn-admin" onclick="runAdminTask('analyze_webs')">
+                    <span style="font-size: 1.5rem;">🔍</span>
+                    <strong>Analizar Webs RSE</strong>
+                    <span style="font-size: 0.75rem;">(web_analyzer.py)</span>
+                </button>
+            </div>
+
+            <div id="admin-status-text" style="font-weight: 700; margin-top: 15px;">Estado de la Operación:</div>
+
+            <div id="admin-progress-container" class="progress-container">
+                <div id="admin-progress-bar" class="progress-bar"></div>
+                <div id="admin-progress-text" class="progress-text">0%</div>
+            </div>
+
+            <div id="admin-console" class="admin-console">Esperando comando...</div>
+            <div style="margin-top: 10px; font-size: 0.8rem; color: #888;">* Solo se muestra las últimas 100 líneas del
+                log.</div>
+        </div>
+    </div>
+
     <script>
-        // Usar la URL actual para que funcione tanto en local como en despliegue
         const API_URL = window.location.origin;
+        let adminPollingInterval = null;
+        let currentActiveTask = null;
+
+        function openAdminModal() { document.getElementById('adminModal').style.display = "block"; }
+        function closeAdminModal() { document.getElementById('adminModal').style.display = "none"; }
+
+        async function runAdminTask(task) {
+            const btn = document.getElementById(`btn-${task}`);
+            const consoleDiv = document.getElementById('admin-console');
+
+            // Capturar filtros actuales
+            const name = document.getElementById('company_name').value;
+            const muni = document.getElementById('municipality').value;
+
+            if (currentActiveTask === task) return;
+
+            consoleDiv.innerHTML = `> Iniciando tarea: ${task}...\n`;
+            if (muni) consoleDiv.innerHTML += `> Filtro Municipio: ${muni}\n`;
+            if (name) consoleDiv.innerHTML += `> Filtro Nombre: ${name}\n`;
+
+            try {
+                let url = `${API_URL}/api/admin/run/${task}?`;
+                if (muni) url += `municipality=${encodeURIComponent(muni)}&`;
+                if (name) url += `name=${encodeURIComponent(name)}&`;
+
+                const res = await fetch(url, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    currentActiveTask = task;
+                    btn.classList.add('running');
+                    startAdminPolling(task);
+                } else {
+                    consoleDiv.innerHTML += `> ERROR: ${data.message}\n`;
+                }
+            } catch (e) {
+                consoleDiv.innerHTML += `> EXCEPTION: ${e.message}\n`;
+            }
+        }
+
+        function startAdminPolling(task) {
+            if (adminPollingInterval) clearInterval(adminPollingInterval);
+            adminPollingInterval = setInterval(() => updateAdminStatus(task), 1000);
+        }
+
+        async function updateAdminStatus(task) {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/status/${task}`);
+                const data = await res.json();
+                const consoleDiv = document.getElementById('admin-console');
+                const progressContainer = document.getElementById('admin-progress-container');
+                const progressBar = document.getElementById('admin-progress-bar');
+                const progressText = document.getElementById('admin-progress-text'); // Changed from progressLabel
+
+                if (data.logs) {
+                    // Usar join con <br> para asegurar saltos de línea físicos en el DOM
+                    consoleDiv.innerHTML = data.logs.join('<br>');
+                    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                }
+
+                // Manejo de Progreso
+                if (data.status === 'running') {
+                    progressContainer.style.display = 'block';
+                    const progressText = document.getElementById('admin-progress-text');
+
+                    if (data.progress && data.progress.total > 0) {
+                        const percent = Math.round((data.progress.current / data.progress.total) * 100);
+                        progressBar.style.width = `${percent}%`;
+                        progressText.innerText = `${percent}% (Procesadas ${data.progress.current} de ${data.progress.total})`;
+                        // Asegurar contraste
+                        progressText.style.color = percent > 50 ? 'white' : '#333';
+                    } else {
+                        progressBar.style.width = `0%`;
+                        progressText.innerText = `Iniciando tarea...`;
+                        progressText.style.color = '#333';
+                    }
+                }
+
+                if (data.status !== 'running') {
+                    document.getElementById(`btn-${task}`).classList.remove('running');
+                    currentActiveTask = null;
+                    if (adminPollingInterval) clearInterval(adminPollingInterval);
+                    consoleDiv.innerHTML += `\n> Tarea finalizada con estado: ${data.status}`;
+
+                    // Ocultar barra tras un pequeño retraso
+                    setTimeout(() => {
+                        if (!currentActiveTask) {
+                            progressContainer.style.display = 'none';
+                            // document.getElementById('admin-progress-label').style.display = 'none'; // This is now handled by progressText
+                        }
+                    }, 5000);
+                }
+            } catch (err) {
+                console.error("Error polling status:", err);
+            }
+        }
 
         async function search() {
             const name = document.getElementById('company_name').value;
@@ -372,61 +579,35 @@
             const onlyEvidence = document.getElementById('only_evidence').checked;
             const grid = document.getElementById('grid');
             const countDiv = document.getElementById('results-count');
-
             grid.innerHTML = '<p>Buscando empresas...</p>';
             countDiv.innerText = '';
-
             try {
                 let url = `${API_URL}/companies/search?limit=${limit}`;
                 if (name) url += `&name=${encodeURIComponent(name)}`;
                 if (muni) url += `&municipality=${encodeURIComponent(muni)}`;
                 if (onlyEvidence) url += `&only_evidence=true`;
-
                 const res = await fetch(url);
                 const data = await res.json();
-
                 countDiv.innerText = `Encontrados ${data.length} posibles aliados`;
                 grid.innerHTML = '';
-
                 data.forEach(company => {
                     const card = document.createElement('div');
-
-                    // Determine Tier color
                     let tier = 'tier-normal';
                     if (company.score_total >= 3.0) tier = 'tier-gold';
                     else if (company.score_total >= 2.0) tier = 'tier-silver';
                     else if (company.score_total >= 1.0) tier = 'tier-bronze';
-
                     card.className = `card ${tier}`;
-
-                    // Build Breakdown HTML
                     let breakdownHtml = '';
-
-                    // 1. Sector
-                    const sectorPoints = company.breakdown.num_sector !== undefined ? company.breakdown.num_sector : 0;
+                    const sectorPoints = company.breakdown.num_sector || 0;
                     breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">🏢</span> <span class="breakdown-text">Sector: +${sectorPoints}</span></div>`;
-
-                    // 2. Territorio
-                    const territoryPoints = company.breakdown.num_territory !== undefined ? company.breakdown.num_territory : 0;
-                    if (territoryPoints > 0)
-                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📍</span> <span class="breakdown-text">Territorio: +${territoryPoints}</span></div>`;
-
-                    // 3. Capacidad Financiera
-                    const financialPoints = company.breakdown.num_financial !== undefined ? company.breakdown.num_financial : 0;
-                    if (financialPoints > 0)
-                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">💶</span> <span class="breakdown-text">Capacidad Económica: +${financialPoints}</span></div>`;
-
-                    // 4. Actualidad Social
+                    const territoryPoints = company.breakdown.num_territory || 0;
+                    if (territoryPoints > 0) breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📍</span> <span class="breakdown-text">Territorio: +${territoryPoints}</span></div>`;
+                    const financialPoints = company.breakdown.num_financial || 0;
+                    if (financialPoints > 0) breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">💶</span> <span class="breakdown-text">Capacidad Económica: +${financialPoints}</span></div>`;
                     const newsPoints = company.breakdown.news || 0;
-                    if (newsPoints > 0)
-                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📰</span> <span class="breakdown-text">Actualidad Social: +${newsPoints}</span></div>`;
-
-                    // 5. Vínculo CRE
+                    if (newsPoints > 0) breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">📰</span> <span class="breakdown-text">Actualidad Social: +${newsPoints}</span></div>`;
                     const creBonus = company.breakdown.cre_bonus || 0;
-                    if (creBonus > 0)
-                        breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">❤️</span> <span class="breakdown-text">Vínculo Histórico: +${creBonus}</span></div>`;
-
-                    // Build News Evidence HTML
+                    if (creBonus > 0) breakdownHtml += `<div class="breakdown-item"><span class="breakdown-icon">❤️</span> <span class="breakdown-text">Vínculo Histórico: +${creBonus}</span></div>`;
                     let newsHtml = '';
                     if (company.evidence && company.evidence.news && company.evidence.news.length > 0) {
                         newsHtml = '<div class="evidence-box"><span class="evidence-title">📰 Evidencias de Impacto:</span>';
@@ -435,132 +616,71 @@
                             if (n.date) {
                                 const d = new Date(n.date);
                                 const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-                                const day = String(d.getDate()).padStart(2, '0');
-                                const year = String(d.getFullYear()).slice(-2);
-                                dateStr = `${day}/${months[d.getMonth()]}/${year}`;
+                                dateStr = `${String(d.getDate()).padStart(2, '0')}/${months[d.getMonth()]}/${String(d.getFullYear()).slice(-2)}`;
                             }
-
                             const linkHtml = n.url ? `<a href="${n.url}" target="_blank" style="color: #004085; font-weight:700; text-decoration: underline;">[${dateStr}]</a>` : `[${dateStr}]`;
-
-                            // Tags de categoría (General y CRE)
                             let tagsHtml = '';
                             if (n.category) tagsHtml += `<span style="background:#e3f2fd; color:#1565c0; padding:1px 4px; border-radius:4px; font-size:0.75em; margin-right:4px; border: 1px solid #bbdefb;">${n.category}</span>`;
                             if (n.cre_category) tagsHtml += `<span style="background:#fff3f3; color:#d32f2f; padding:1px 4px; border-radius:4px; font-size:0.75em; margin-right:4px; border: 1px solid #ffcdd2;">${n.cre_category}</span>`;
-
-                            // Valoración (CRE o Impacto)
-                            let scoreHtml = '';
-                            if (n.cre_score > 0) scoreHtml = `<b style="color:var(--cr-red); font-size:0.85em; margin-left:5px;">(${n.cre_score}/10)</b>`;
-                            else if (n.impact_score) scoreHtml = `<b style="color:#666; font-size:0.8em; margin-left:5px;">[Impacto: ${n.impact_score}]</b>`;
-
+                            let scoreHtml = n.cre_score > 0 ? `<b style="color:var(--cr-red); font-size:0.85em; margin-left:5px;">(${n.cre_score}/10)</b>` : (n.impact_score ? `<b style="color:#666; font-size:0.8em; margin-left:5px;">[Impacto: ${n.impact_score}]</b>` : '');
                             newsHtml += `<div style="margin-bottom:0.4rem; line-height:1.2;">${linkHtml} ${tagsHtml}"${n.title}" ${scoreHtml} <em style="font-size:0.85em; color:#666;">(${n.source})</em></div>`;
                         });
                         newsHtml += '</div>';
                     }
+                    // Build Web Keywords HTML
+                    let keywordsHtml = '';
+                    if (company.web_keywords && Object.keys(company.web_keywords).length > 0) {
+                        keywordsHtml = '<div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 5px;">';
+                        for (const [group, tags] of Object.entries(company.web_keywords)) {
+                            const colors = {
+                                'RSE': '#6c757d',
+                                'Salud': '#28a745',
+                                'Inclusión': '#007bff',
+                                'Empleo': '#fd7e14',
+                                'Medio Ambiente': '#198754',
+                                'Juventud': '#6f42c1'
+                            };
+                            const color = colors[group] || '#666';
+                            tags.forEach(tag => {
+                                keywordsHtml += `<span style="background: ${color}22; color: ${color}; border: 1px solid ${color}44; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 500;">${tag}</span>`;
+                            });
+                        }
+                        keywordsHtml += '</div>';
+                    }
 
-                    card.innerHTML = `
-                    <div class="card-header">
-                        <div>
-                            <h3 class="company-name">${company.name}</h3>
-                            <div class="company-meta">${company.municipality} | ${company.category}</div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div class="score-badge">${company.score_total}</div>
-                            ${company.score_cre > 0 ? `<div class="cre-badge" title="Vínculo Social con Cruz Roja">❤️ ${company.score_cre}</div>` : ''}
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="breakdown-section">
-                            <strong>Argumento Social:</strong>
-                            <div style="margin-top:0.5rem">
-                                ${breakdownHtml || '<span style="color:#999">Sin argumentos específicos.</span>'}
-                            </div>
-                        </div>
-                        ${newsHtml}
-                        <button class="btn-pitch" onclick="openPitchModal(${company.id})">💡 Preparar Visita (IA)</button>
-                    </div>
-                    <div class="contact-footer">
-                        <span>📧 ${company.contact.email || 'N/A'}</span>
-                        <span>📞 ${company.contact.phone || 'N/A'}</span>
-                    </div>
-                `;
+                    card.innerHTML = `<div class="card-header"><div><h3 class="company-name">${company.name}</h3><div class="company-meta">${company.municipality} | ${company.category}</div></div><div style="text-align: right;"><div class="score-badge">${company.score_total}</div>${company.score_cre > 0 ? `<div class="cre-badge" title="Vínculo Social con Cruz Roja">❤️ ${company.score_cre}</div>` : ''}</div></div><div class="card-body"><div class="breakdown-section"><strong>Argumento Social:</strong><div style="margin-top:0.5rem">${breakdownHtml || '<span style="color:#999">Sin argumentos específicos.</span>'}</div></div>${newsHtml}${keywordsHtml}<button class="btn-pitch" onclick="openPitchModal(${company.id})">💡 Preparar Visita (IA)</button></div><div class="contact-footer"><span>📧 ${company.contact.email || 'N/A'}</span><span>📞 ${company.contact.phone || 'N/A'}</span></div>`;
                     grid.appendChild(card);
                 });
-
-            } catch (error) {
-                console.error(error);
-                grid.innerHTML = '<p style="color:red">Error al conectar con la API.</p>';
-            }
+            } catch (error) { grid.innerHTML = '<p style="color:red">Error al conectar con la API.</p>'; }
         }
 
-        // Modal Logic
         async function openPitchModal(id) {
             const modal = document.getElementById('pitchModal');
             const loading = document.getElementById('pitchLoading');
             const result = document.getElementById('pitchResult');
-
-            modal.style.display = "block";
-            loading.style.display = "block";
-            result.style.display = "none";
-
+            modal.style.display = "block"; loading.style.display = "block"; result.style.display = "none";
             try {
-                console.log("Generando pitch para ID:", id);
                 const res = await fetch(`${API_URL}/companies/${id}/pitch`);
-
-                if (!res.ok) {
-                    const errorBody = await res.text();
-                    console.error("Error del servidor (Status " + res.status + "):", errorBody);
-                    throw new Error(`Servidor devolvió error ${res.status}: ${errorBody.substring(0, 100)}...`);
-                }
-
                 const data = await res.json();
-
-                if (data.error) {
-                    console.error("Error lógico del servidor:", data.error, data.traceback);
-                    throw new Error(data.error);
-                }
-
-                loading.style.display = "none";
-                result.style.display = "block";
-
-                // Format Text
+                if (data.error) throw new Error(data.error);
+                loading.style.display = "none"; result.style.display = "block";
                 document.getElementById('pitchText').innerText = data.pitch;
-
-                // Links
                 const linksUl = document.getElementById('realTimeLinks');
                 linksUl.innerHTML = "";
                 if (data.real_time_results && data.real_time_results.length > 0) {
-                    data.real_time_results.forEach(link => {
-                        linksUl.innerHTML += `<li><a href="${link}" target="_blank">${link}</a></li>`;
-                    });
-                } else {
-                    linksUl.innerHTML = "<li>Sin resultados recientes en Google News.</li>";
-                }
-
-                // Keywords
-                document.getElementById('webKeywords').innerText = data.web_detected_keywords.length > 0 ?
-                    data.web_detected_keywords.join(", ") : "No se detectaron términos específicos en la home.";
-
-            } catch (e) {
-                console.error("Error completo en la petición:", e);
-                loading.innerHTML = `
-                    <p style='color:red; font-weight:bold;'>Error generando el pitch.</p>
-                    <p style='font-size:0.8em; color:#666;'>Detalle: ${e.message}</p>
-                    <p style='font-size:0.7em; color:#999; margin-top:10px;'>Consulta la consola (F12) o los logs del servidor para más detalles.</p>
-                `;
-            }
+                    data.real_time_results.forEach(link => { linksUl.innerHTML += `<li><a href="${link}" target="_blank">${link}</a></li>`; });
+                } else { linksUl.innerHTML = "<li>Sin resultados recientes en Google News.</li>"; }
+                document.getElementById('webKeywords').innerText = data.web_detected_keywords.length > 0 ? data.web_detected_keywords.join(", ") : "No se detectaron términos específicos en la home.";
+            } catch (e) { loading.innerHTML = `<p style='color:red; font-weight:bold;'>Error generando el pitch.</p><p style='font-size:0.8em; color:#666;'>Detalle: ${e.message}</p>`; }
         }
 
-        function closeModal() {
-            document.getElementById('pitchModal').style.display = "none";
-        }
-
+        function closeModal() { document.getElementById('pitchModal').style.display = "none"; }
         window.onclick = function (event) {
-            if (event.target == document.getElementById('pitchModal')) {
-                closeModal();
-            }
+            if (event.target == document.getElementById('pitchModal')) closeModal();
+            if (event.target == document.getElementById('adminModal')) closeAdminModal();
         }
     </script>
-
+    <div id="admin-progress-container-global" style="display:none;"></div>
 </body>
 
 </html>

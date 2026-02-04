@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from typing import Optional
 from sqlalchemy.orm import Session
 from api.models import init_db, GVACompany, CompanyScore, CompanyNews
 import yaml
@@ -11,6 +12,33 @@ with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 db_url = config["database"]["url"]
 engine = init_db(db_url)
+
+from api.manager import runner
+
+@app.post("/api/admin/run/{task}")
+async def run_task(task: str, municipality: Optional[str] = None, name: Optional[str] = None):
+    script_map = {
+        "sync": "sync_gva.py",
+        "enrich": "run_weekly_enrichment.py",
+        "export": "export.py",
+        "analyze_webs": "web_analyzer.py"
+    }
+    
+    if task not in script_map:
+        return {"error": "Tarea no reconocida"}
+    
+    args = []
+    if municipality:
+        args.extend(["--municipality", municipality])
+    if name:
+        args.extend(["--name", name])
+        
+    success, message = runner.run_script(task, script_map[task], args=args)
+    return {"success": success, "message": message}
+
+@app.get("/api/admin/status/{task}")
+async def get_task_status(task: str):
+    return runner.get_status(task)
 
 def get_db():
     from sqlalchemy.orm import sessionmaker
@@ -111,6 +139,7 @@ def search_companies(
             },
             "score_total": round(score.score_total, 2),
             "score_cre": round(score.score_cre_link or 0.0, 2),
+            "web_keywords": json.loads(score.web_keywords or "{}"),
             "breakdown": {
                 "sector": score.breakdown_sector,
                 "territory": score.breakdown_territory,
