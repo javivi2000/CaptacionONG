@@ -12,3 +12,4 @@ lxml_html_clean
 googlesearch-python
 requests
 tabulate
+google-generativeai

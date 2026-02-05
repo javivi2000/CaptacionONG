@@ -13,7 +13,11 @@ def print_header():
     print("====================================================\n")
 
 def run_script(script_name, args=None):
-    cmd = [sys.executable, script_name]
+    # Intentar usar el python del entorno virtual si existe
+    venv_python = os.path.join(".venv", "Scripts", "python.exe") if os.name == 'nt' else os.path.join(".venv", "bin", "python")
+    python_exe = venv_python if os.path.exists(venv_python) else sys.executable
+    
+    cmd = [python_exe, script_name]
     if args:
         cmd.extend(args)
     try:

@@ -30,7 +30,11 @@ class ScriptRunner:
         return True, "Iniciado"
 
     def _execute(self, task_id: str, script_name: str, args: List[str] = None):
-        cmd = [sys.executable, script_name]
+        # Intentar usar el python del entorno virtual si existe
+        venv_python = os.path.join(".venv", "Scripts", "python.exe") if os.name == 'nt' else os.path.join(".venv", "bin", "python")
+        python_exe = venv_python if os.path.exists(venv_python) else sys.executable
+        
+        cmd = [python_exe, script_name]
         if args:
             cmd.extend(args)
             

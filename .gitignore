@@ -10,3 +10,7 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# App Data
+config.yaml
+data/
